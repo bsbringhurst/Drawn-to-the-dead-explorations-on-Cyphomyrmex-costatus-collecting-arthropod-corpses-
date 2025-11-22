@@ -1,1 +1,253 @@
-#script used for 
+#R script used for analyses
+
+
+#Creation of heatmap depicting colony body parts (figure 2)
+Data_gfg <- read_excel("Juno_Body_Parts.xlsx")
+library(gplots)  
+
+head(data)
+
+colony_genus_data <- Data_gfg %>%
+  group_by(Colony_Code, Genera) %>%  # Replace with actual column names
+  summarise(Count = n()) %>%
+  pivot_wider(names_from = Genera, values_from = Count, values_fill = 0)
+
+heatmap_data <- as.data.frame(colony_genus_data)
+
+library(vegan)
+
+library(RColorBrewer)
+df <- subset(heatmap_data, select = -Colony_Code)
+df_1 <- subset(df, select = -unidentified)
+
+data_transformed <- decostand(df_1, method = "total")
+
+data_matrix <- as.matrix(data_transformed)
+
+data_matrix <- apply(data_matrix, 2, as.numeric)
+
+library(ComplexHeatmap)
+library(circlize)
+
+rownames(data_matrix) <- heatmap_data$Colony_Code
+
+col_fun2 <- colorRamp2(
+  seq(min(data_matrix_chem), max(data_matrix_chem), length.out = 3),
+  c("navyblue", "green4", "yellow2")
+)
+
+ht1 <- Heatmap(
+  data_matrix,
+  cluster_rows = FALSE,       # Disable clustering for rows
+  cluster_columns = FALSE,    # Disable clustering for columns
+  col = col_fun2,
+  column_names_gp = gpar(fontsize = 10, fontface = "italic"),  # Italicize column labels
+  column_names_rot = 90,      # Rotate column labels
+  column_names_side = "top",  # Move column labels to the top
+  row_names_side = "left",    # Ensure row labels appear on the left
+  row_names_gp = gpar(fontsize = 7),  # Customize row labels appearance
+  row_names_max_width = unit(10, "cm"),  # Allow space for long row names
+  heatmap_legend_param = list(title = "Scale")  # Add a legend title
+)
+draw(ht1)
+
+
+
+#Creation of stacked histogram plots depicting CHC and fatty acid classes for fungus gardens, necromass, and workers based on compound total carbon length (electronic supplementary information, figure SX)
+library(tidyverse)
+
+#Fungus Garden
+df <- tribble(
+  ~TotalCarbon, ~"Fatty Acids", ~Linear, ~Branched, ~Alkene,
+  17, 0, 0.00216522, 0.00044194, 0,
+  18, 0, 0, 0.009655277, 0,
+  19, 0, 0.006699807, 0.014405646, 0,
+  20, 0, 0.009131442, 0.02, 0.000935907,
+  21, 0, 0, 0.000566606, 0,
+  22, 0, 0, 0, 0,
+  23, 0, 0.00, 0.02, 0.05,
+  24, 0, 0, 0.01, 0.001381154,
+  25, 0, 0.077571178, 0, 0,
+  26, 0, 0, 0.029036299, 0,
+  27, 0, 0.344578446, 0, 0,
+  28, 0, 0.002630953, 0, 0,
+  29, 0, 0.304596294, 0, 0,
+  30, 0, 0, 0, 0,
+  31, 0, 0.075586125, 0, 0,
+  32, 0, 0, 0, 0,
+  33, 0, 0.013773331, 0, 0,
+  34, 0, 0, 0, 0,
+  35, 0, 0.000948367, 0, 0
+)
+
+
+#Necromass
+df <- tribble(
+  ~TotalCarbon, ~"Fatty Acids", ~Linear, ~Branched, ~Alkene,
+17, 0, 0.000249051, 0, 0,
+18, 0.003177537, 0.004622069, 0.002511656, 0,
+19, 0, 0.002465578, 0, 0,
+20, 0, 0.002901563, 0.01, 0.000822899,
+21, 0, 0.004238941, 0.00363684, 0,
+22, 0, 0.020956316, 0, 0,
+23, 0, 0.05, 0.02, 0.05,
+24, 0, 0, 0.03, 0,
+25, 0, 0.079095434, 0, 0,
+26, 0, 0.140153271, 0.01408641, 0,
+27, 0, 0.102957846, 0, 0,
+28, 0, 0.138508783, 0, 0,
+29, 0, 0.089136447, 0, 0,
+30, 0, 0.06953283, 0, 0,
+31, 0, 0.053842592, 0, 0,
+32, 0, 0.032466713, 0, 0,
+33, 0, 0.053379655, 0, 0,
+34, 0, 0.018435045, 0, 0,
+35, 0, 0.01037117, 0, 0
+)
+
+
+
+#Workers
+df <- tribble(
+  ~TotalCarbon, ~"Fatty Acids", ~Linear, ~Branched, ~Alkene,
+17, 0, 0, 0, 0,
+18, 0.000587977, 0, 0.004754263, 0,
+19, 0, 0.002750577, 0.002326973, 0,
+20, 0, 0.00215658, 0.00, 0,
+21, 0, 0.00547863, 0, 0,
+22, 0, 0.022143126, 0, 0,
+23, 0, 0.06, 0.01, 0.05,
+24, 0, 0, 0.01, 0.001532641,
+25, 0, 0.084294782, 0, 0,
+26, 0, 0.132195446, 0.010694071, 0,
+27, 0, 0.116012221, 0, 0,
+28, 0, 0.117661363, 0, 0,
+29, 0, 0.131190971, 0, 0,
+30, 0, 0.070931563, 0, 0,
+31, 0, 0.055410495, 0, 0,
+32, 0, 0.032444132, 0, 0,
+33, 0, 0.04888452, 0, 0,
+34, 0, 0.026056907, 0, 0,
+35, 0, 0.007165112, 0, 0
+)
+
+
+df_long <- df %>%
+  pivot_longer(cols = "Fatty Acids":Alkene,
+               names_to = "Class",
+               values_to = "Value")
+
+
+ggplot(df_long, aes(x = factor(TotalCarbon), y = Value, fill = Class)) +
+  geom_col() +
+  labs(
+    x = "Total Carbon",
+    y = "Proportion",
+    fill = "Class",
+    title = "Worker CHC and Fatty Acid Classes"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 14, angle = 0, hjust = 0.5, vjust = 0.5),
+    axis.text.y = element_text(size = 14),
+    axis.title.x = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    plot.title  = element_text(size = 18, face = "bold"),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
+
+
+#Creation of regression plot depicting fungus garden area (cm^2) and number of body parts (electronic supplementary information, figure SX)
+library(tidyverse)
+
+df <- tribble(
+  ~ID, ~Total_Body_Parts, ~Area_cm2,
+  "RMMA220604-01", 92, 6.439,
+  "RMMA220604-06", 130, 17.062,
+  "SKM220605-01", 41, 5.344,
+  "SKM220605-03", 52, 3.222,
+  "SKM220605-06", 53, 4.425,
+  "SKM220609-01", 43, 2.228,
+  "SKM220609-03", 52, 0.964,
+  "SKM220611-01", 65, 1.748,
+  "SKM220613-01", 74, 2.625,
+  "SKM220613-02", 47, 1.524,
+  "SKM220613-03", 92, 5.505,
+  "SKM220613-04", 44, 2.192
+)
+
+model <- lm(Area_cm2 ~ Total_Body_Parts, data = df)
+
+r2 <- summary(model)$r.squared
+r2_label <- paste0("R² = ", round(r2, 3))
+
+summary(model)
+
+ggplot(df, aes(x = Area_cm2, y = Total_Body_Parts)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = TRUE) +
+  annotate("text", 
+           x = Inf, y = Inf, 
+           label = r2_label, 
+           hjust = 6.75, vjust = 18, 
+           size = 5) +
+  theme_minimal() +
+  labs(
+    title = "Regression of Total Number of Body Parts vs. Fungus Garden Area",
+    x = "Fungus Garden Area (cm²)",
+    y = "Total Number of Body Parts"
+  )
+
+
+#Creation of box and whisker plots depicting body part locations (electronic supplementary information, figure SX)
+df_bl <- data.frame(
+  ID = c("RMMA220604-01","RMMA220604-06","SKM220605-01","SKM220605-03","SKM220605-06",
+         "SKM220609-01","SKM220609-03","SKM220611-01","SKM220613-01","SKM220613-02",
+         "SKM220613-03","SKM220613-04"),
+  Base = c(35,43,13,28,13,26,30,28,30,21,26,22),
+  Ceiling  = c(57,87,28,24,40,17,22,37,44,26,66,22)
+)
+
+library(tidyverse)
+
+df_long_bl <- df_bl %>%
+  pivot_longer(cols = c(Base, Ceiling),
+               names_to = "Location",
+               values_to = "Count")
+
+
+library(dplyr)
+library(ggplot2)
+
+df_out <- df_long_bl %>%
+  group_by(Location) %>%
+  mutate(
+    Q1 = quantile(Count, 0.25),
+    Q3 = quantile(Count, 0.75),
+    IQR = Q3 - Q1,
+    is_outlier = Count < (Q1 - 1.5*IQR) | Count > (Q3 + 1.5*IQR)
+  )
+
+
+ggplot(df_out, aes(x = Location, y = Count, fill = Location)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +   # REMOVE default outlier dots
+  geom_jitter(
+    aes(color = is_outlier),
+    width = 0.2,
+    size = 3
+  ) +
+  scale_color_manual(
+    values = c("FALSE" = "black", "TRUE" = "gray55")
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Body Part Counts by Location (Base vs. Ceiling)",
+    x = "Location",
+    y = "Number of Body Parts"
+  ) +
+  theme(
+    text = element_text(size = 20),
+    legend.position = "none"
+  )
+
