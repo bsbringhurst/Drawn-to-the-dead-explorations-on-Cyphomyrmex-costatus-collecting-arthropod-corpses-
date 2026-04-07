@@ -1,206 +1,92 @@
-#R script used for analyses
+#R-script for Bringhurst et al., (2026)
+#Contact bringhurst.4@buckeyemail.osu.edu for aid or details
 
 
-#Creation of heatmap depicting colony body parts (figure 2)
+#Mantel Test for Community Similarity by Distance
+library(readxl)
+library(gplots)
+library(vegan)
+library(geosphere)
+library(dplyr)
+library(tidyr)
+
+
+#Input dataset
 Data_gfg <- read_excel("Juno_Body_Parts.xlsx")
-library(gplots)  
 
-head(data)
-
+# Lumps the Excel sheet by colony code and by genus, creating one line for each colony
 colony_genus_data <- Data_gfg %>%
   group_by(Colony_Code, Genera) %>%  # Replace with actual column names
   summarise(Count = n()) %>%
   pivot_wider(names_from = Genera, values_from = Count, values_fill = 0)
 
-heatmap_data <- as.data.frame(colony_genus_data)
-
-library(vegan)
-
-library(RColorBrewer)
-df <- subset(heatmap_data, select = -Colony_Code)
+# Removes Colony_Code and unidentified taxa
+df <- subset(colony_genus_data, select = -Colony_Code)
 df_1 <- subset(df, select = -unidentified)
 
-data_transformed <- decostand(df_1, method = "total")
+#Input GPS coordinates
+coords <- read_excel("Long_Latv2.xlsx")
 
-data_matrix <- as.matrix(data_transformed)
+# Geographic distance matrix
+geo_dist <- distm(coords, fun = distHaversine)
 
-data_matrix <- apply(data_matrix, 2, as.numeric)
+# Bray-Curtis dissimilarity
+eco_dist <- vegdist(df_1, method = "bray")
 
+#Mantel test between geographic distance matrix and Bray-Curtis dissimilarity
+mantel_test <- mantel(eco_dist, geo_dist, method = "spearman", permutations = 9999, na.rm = TRUE)  # Mantel test
+print(mantel_test)
+
+
+#-------------------------------------------------
+
+
+#Figure 2 - Necromass Taxonomic Heatmap
+library(vegan)
+library(RColorBrewer)
 library(ComplexHeatmap)
 library(circlize)
 
-rownames(data_matrix) <- heatmap_data$Colony_Code
+#Makes count data proportions for each colony, so proportion of each genus out of the colony's community
+data_transformed <- decostand(df_1, method = "total")
 
+#Convert the data to a numeric matrix
+data_matrix <- as.matrix(data_transformed)
+
+#Assign row names (colony labels)
+rownames(data_matrix) <- colony_genus_data$Colony_Code
+
+#Remove initials from colony names (RMMA, ACG, SKM, etc.)
+rownames(data_matrix) <- substr(rownames(data_matrix), 7, nchar(rownames(data_matrix)))
+
+#Create heatmap color palette
 col_fun2 <- colorRamp2(
-  seq(min(data_matrix_chem), max(data_matrix_chem), length.out = 3),
+  seq(min(data_matrix), max(data_matrix), length.out = 3),
   c("navyblue", "green4", "yellow2")
 )
 
+# Create the heatmap with row names set to 'Colony_Code'
 ht1 <- Heatmap(
   data_matrix,
-  cluster_rows = FALSE,       # Disable clustering for rows
-  cluster_columns = FALSE,    # Disable clustering for columns
+  cluster_rows = FALSE,
+  cluster_columns = FALSE,
   col = col_fun2,
-  column_names_gp = gpar(fontsize = 10, fontface = "italic"),  # Italicize column labels
-  column_names_rot = 90,      # Rotate column labels
-  column_names_side = "top",  # Move column labels to the top
-  row_names_side = "left",    # Ensure row labels appear on the left
-  row_names_gp = gpar(fontsize = 7),  # Customize row labels appearance
-  row_names_max_width = unit(10, "cm"),  # Allow space for long row names
-  heatmap_legend_param = list(title = "Scale")  # Add a legend title
+  column_names_gp = gpar(fontsize = 14, fontface = "italic"),
+  column_names_rot = 45,
+  column_names_side = "top",
+  row_names_side = "left",
+  row_names_gp = gpar(fontsize = 9),
+  row_names_max_width = unit(10, "cm"),
+  heatmap_legend_param = list(title = "Scale")
 )
+
 draw(ht1)
 
 
-
-#Creation of stacked histogram plots depicting CHC and fatty acid classes for fungus gardens, necromass, and workers based on compound total carbon length (electronic supplementary information, figure SX)
-library(tidyverse)
-
-#Fungus Garden
-df <- tribble(
-  ~TotalCarbon, ~"Fatty Acids", ~Linear, ~Branched, ~Alkene,
-  17, 0, 0.00216522, 0.00044194, 0,
-  18, 0, 0, 0.009655277, 0,
-  19, 0, 0.006699807, 0.014405646, 0,
-  20, 0, 0.009131442, 0.02, 0.000935907,
-  21, 0, 0, 0.000566606, 0,
-  22, 0, 0, 0, 0,
-  23, 0, 0.00, 0.02, 0.05,
-  24, 0, 0, 0.01, 0.001381154,
-  25, 0, 0.077571178, 0, 0,
-  26, 0, 0, 0.029036299, 0,
-  27, 0, 0.344578446, 0, 0,
-  28, 0, 0.002630953, 0, 0,
-  29, 0, 0.304596294, 0, 0,
-  30, 0, 0, 0, 0,
-  31, 0, 0.075586125, 0, 0,
-  32, 0, 0, 0, 0,
-  33, 0, 0.013773331, 0, 0,
-  34, 0, 0, 0, 0,
-  35, 0, 0.000948367, 0, 0
-)
+-------------------------------------------------
 
 
-#Necromass
-df <- tribble(
-  ~TotalCarbon, ~"Fatty Acids", ~Linear, ~Branched, ~Alkene,
-17, 0, 0.000249051, 0, 0,
-18, 0.003177537, 0.004622069, 0.002511656, 0,
-19, 0, 0.002465578, 0, 0,
-20, 0, 0.002901563, 0.01, 0.000822899,
-21, 0, 0.004238941, 0.00363684, 0,
-22, 0, 0.020956316, 0, 0,
-23, 0, 0.05, 0.02, 0.05,
-24, 0, 0, 0.03, 0,
-25, 0, 0.079095434, 0, 0,
-26, 0, 0.140153271, 0.01408641, 0,
-27, 0, 0.102957846, 0, 0,
-28, 0, 0.138508783, 0, 0,
-29, 0, 0.089136447, 0, 0,
-30, 0, 0.06953283, 0, 0,
-31, 0, 0.053842592, 0, 0,
-32, 0, 0.032466713, 0, 0,
-33, 0, 0.053379655, 0, 0,
-34, 0, 0.018435045, 0, 0,
-35, 0, 0.01037117, 0, 0
-)
-
-
-
-#Workers
-df <- tribble(
-  ~TotalCarbon, ~"Fatty Acids", ~Linear, ~Branched, ~Alkene,
-17, 0, 0, 0, 0,
-18, 0.000587977, 0, 0.004754263, 0,
-19, 0, 0.002750577, 0.002326973, 0,
-20, 0, 0.00215658, 0.00, 0,
-21, 0, 0.00547863, 0, 0,
-22, 0, 0.022143126, 0, 0,
-23, 0, 0.06, 0.01, 0.05,
-24, 0, 0, 0.01, 0.001532641,
-25, 0, 0.084294782, 0, 0,
-26, 0, 0.132195446, 0.010694071, 0,
-27, 0, 0.116012221, 0, 0,
-28, 0, 0.117661363, 0, 0,
-29, 0, 0.131190971, 0, 0,
-30, 0, 0.070931563, 0, 0,
-31, 0, 0.055410495, 0, 0,
-32, 0, 0.032444132, 0, 0,
-33, 0, 0.04888452, 0, 0,
-34, 0, 0.026056907, 0, 0,
-35, 0, 0.007165112, 0, 0
-)
-
-
-df_long <- df %>%
-  pivot_longer(cols = "Fatty Acids":Alkene,
-               names_to = "Class",
-               values_to = "Value")
-
-
-ggplot(df_long, aes(x = factor(TotalCarbon), y = Value, fill = Class)) +
-  geom_col() +
-  labs(
-    x = "Total Carbon",
-    y = "Proportion",
-    fill = "Class",
-    title = "Worker CHC and Fatty Acid Classes"
-  ) +
-  theme_minimal() +
-  theme(
-    axis.text.x = element_text(size = 14, angle = 0, hjust = 0.5, vjust = 0.5),
-    axis.text.y = element_text(size = 14),
-    axis.title.x = element_text(size = 16),
-    axis.title.y = element_text(size = 16),
-    plot.title  = element_text(size = 18, face = "bold"),
-    legend.title = element_text(size = 14),
-    legend.text = element_text(size = 12)
-  )
-
-
-#Creation of regression plot depicting fungus garden area (cm^2) and number of body parts (electronic supplementary information, figure SX)
-library(tidyverse)
-
-df <- tribble(
-  ~ID, ~Total_Body_Parts, ~Area_cm2,
-  "RMMA220604-01", 92, 6.439,
-  "RMMA220604-06", 130, 17.062,
-  "SKM220605-01", 41, 5.344,
-  "SKM220605-03", 52, 3.222,
-  "SKM220605-06", 53, 4.425,
-  "SKM220609-01", 43, 2.228,
-  "SKM220609-03", 52, 0.964,
-  "SKM220611-01", 65, 1.748,
-  "SKM220613-01", 74, 2.625,
-  "SKM220613-02", 47, 1.524,
-  "SKM220613-03", 92, 5.505,
-  "SKM220613-04", 44, 2.192
-)
-
-model <- lm(Area_cm2 ~ Total_Body_Parts, data = df)
-
-r2 <- summary(model)$r.squared
-r2_label <- paste0("R² = ", round(r2, 3))
-
-summary(model)
-
-ggplot(df, aes(x = Area_cm2, y = Total_Body_Parts)) +
-  geom_point(size = 3) +
-  geom_smooth(method = "lm", se = TRUE) +
-  annotate("text", 
-           x = Inf, y = Inf, 
-           label = r2_label, 
-           hjust = 6.75, vjust = 18, 
-           size = 5) +
-  theme_minimal() +
-  labs(
-    title = "Regression of Total Number of Body Parts vs. Fungus Garden Area",
-    x = "Fungus Garden Area (cm²)",
-    y = "Total Number of Body Parts"
-  )
-
-
-#Creation of box and whisker plots depicting body part locations (electronic supplementary information, figure SX)
+#Supplemental Figure - Box and Whisker Plots for Necromass Placement
 df_bl <- data.frame(
   ID = c("RMMA220604-01","RMMA220604-06","SKM220605-01","SKM220605-03","SKM220605-06",
          "SKM220609-01","SKM220609-03","SKM220611-01","SKM220613-01","SKM220613-02",
@@ -251,3 +137,468 @@ ggplot(df_out, aes(x = Location, y = Count, fill = Location)) +
     legend.position = "none"
   )
 
+
+-------------------------------------------------
+
+
+#Supplemental Figure - Necromass and Fungus Garden Regression
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+
+# Create dataframe
+data <- data.frame(
+  Total_Number_of_Body_Parts = c(92,130,41,52,53,43,52,65,74,47,92,44),
+  Area_cm2 = c(6.439,17.062,5.344,3.222,4.425,2.228,0.964,1.748,2.625,1.524,5.505,2.192)
+)
+
+model <- lm(Total_Number_of_Body_Parts ~ Area_cm2, data = data)
+
+summary(model)
+
+library(ggplot2)
+
+ggplot(data, aes(y = Total_Number_of_Body_Parts, x = Area_cm2)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = TRUE) +
+  theme_classic() +
+  labs(y = "Total Number of Body Parts",
+       x = "Area (cm²)")
+
+
+-------------------------------------------------
+
+
+#Supplemental Figure - Evenness, richness and diversity plot
+#Input evenness, richness, and diversity
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+data <- read_excel("Shorthand Juno Data.xlsx")
+
+#Clean column names by removing any extra spaces or non-breaking characters
+names(data) <- str_trim(names(data))
+
+#Convert columns to numeric (in case they were read as character due to formatting)
+data <- data %>%
+  mutate(
+    Richness = parse_number(Richness),
+    Evenness = parse_number(Evenness),
+    Diversity = parse_number(Diversity)
+  )
+
+#Convert to long format
+data_long <- data %>%
+  pivot_longer(cols = c(Richness, Evenness, Diversity),
+               names_to = "Metric",
+               values_to = "Value")
+
+#Rename "Diversity" to full label
+data_long <- data_long %>%
+  mutate(
+    Metric = case_when(
+      Metric == "Diversity" ~ "Shannon's Diversity Index (H′)",
+      TRUE ~ Metric
+    ),
+    Dummy = " " #Add dummy x-axis value
+  )
+
+# Plot evenness, richness, and diversity
+ggplot(data_long, aes(x = Dummy, y = Value, fill = Metric)) +
+  geom_boxplot(width = 0.4, outlier.shape = NA, alpha = 0.6) +
+  geom_jitter(width = 0.1, height = 0, size = 1.5, alpha = 0.7, color = "black") +
+  facet_wrap(~ Metric, scales = "free_y") +
+  theme_minimal() +
+  labs(
+    title = "",
+    x = NULL,
+    y = "Value"
+  ) +
+  theme(
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "none"
+  ) +
+  scale_fill_brewer(palette = "Set2")
+
+
+-------------------------------------------------
+
+
+#Figure 3A - NMDS of All Chemicals
+#NMDS plot for all sample types with all chemicals
+library(dplyr)
+library(ggplot2)
+
+# Read in the data
+nmds_data <- read.csv("BP_costatus_all.csv")
+
+# Collapse replicates to colony means
+nmds_colony <- nmds_data %>%
+  group_by(Colony, Type) %>%
+  summarize(
+    MDS1 = mean(MDS1, na.rm = TRUE),
+    MDS2 = mean(MDS2, na.rm = TRUE)
+  )
+
+ggplot(nmds_colony, aes(x = MDS1, y = MDS2, color = Type)) +
+  geom_point(size = 3) +
+  stat_ellipse(type = "norm", level = 0.95, linewidth = 1) +
+  theme_minimal(base_size = 18) +
+  labs(x = "NMDS1", y = "NMDS2", color = "Sample Type") +
+  scale_color_manual(values = c(
+    "Fungus Garden" = "green4",
+    "Necromass"    = "black",
+    "Workers"      = "orange"
+  )) +
+  theme(
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(face = "bold"),
+    legend.title = element_text(face = "bold")
+  )
+
+#Adonis testing across the sample types with all chemicals
+library(vegan)
+dist_matrix <- dist(nmds_colony[, c("MDS1", "MDS2")])  # Euclidean distance
+# Run PERMANOVA
+adonis_result <- adonis2(dist_matrix ~ Type, data = nmds_colony, permutations = 999)
+
+adonis_result
+
+-------------------------------------------------
+
+
+#Figure 3B - NMDS for CHC only
+# Read in the data for NMDS for CHC ONLY
+nmds_chc_data <- read.csv("CHCONLY_CostausNMDS.csv")
+
+# Collapse replicates to colony means
+nmds_chc_colony <- nmds_chc_data %>%
+  group_by(Colony, Type) %>%
+  summarize(
+    MDS1 = mean(MDS1, na.rm = TRUE),
+    MDS2 = mean(MDS2, na.rm = TRUE)
+  )
+
+ggplot(nmds_chc_colony, aes(x = MDS1, y = MDS2, color = Type)) +
+  geom_point(size = 3) +
+  stat_ellipse(type = "norm", level = 0.95, linewidth = 1) +
+  theme_minimal(base_size = 18) +
+  labs(x = "NMDS1", y = "NMDS2", color = "Sample Type") +
+  scale_color_manual(values = c(
+    "Fungus Garden" = "green4",
+    "Necromass"    = "black",
+    "Workers"      = "orange"
+  )) +
+  theme(
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(face = "bold"),
+    legend.title = element_text(face = "bold")
+  )
+
+# If you only have NMDS scores (MDS1, MDS2), you can still test:
+dist_matrix <- dist(nmds_chc_colony[, c("MDS1", "MDS2")])  # Euclidean distance
+
+# Run PERMANOVA
+adonis_result <- adonis2(dist_matrix ~ Type, data = nmds_chc_colony, permutations = 999)
+
+# View results
+adonis_result
+
+# Unique Types
+types <- unique(nmds_chc_colony$Type)
+
+# Create empty list to store results
+pairwise_results <- list()
+
+# Loop through all pairwise combinations
+for(i in 1:(length(types)-1)){
+  for(j in (i+1):length(types)){
+    subset_data <- nmds_chc_colony[nmds_chc_colony$Type %in% c(types[i], types[j]), ]
+    dist_subset <- dist(subset_data[, c("MDS1", "MDS2")])
+    
+    adonis_res <- adonis2(dist_subset ~ Type, data = subset_data, permutations = 9999)
+    
+    pairwise_results[[paste(types[i], "vs", types[j])]] <- adonis_res
+  }
+}
+
+# View results
+pairwise_results
+
+
+-------------------------------------------------
+
+
+#Figure 3C - Heatmap of CHC and Fatty Acids
+costatus_chems_CHC <- read.csv(
+    "CHCPercentAreaMatrix(Sheet2).csv",
+    fileEncoding = "latin1",
+    header = TRUE,
+    check.names = FALSE
+  )
+
+colony_means_CHC <- costatus_chems_CHC %>%
+  group_by(ColonyCode, Type) %>%
+  summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)), .groups = "drop")
+
+chem_matrix_CHC = colony_means_CHC[,4:ncol(colony_means_CHC)] 
+
+# Convert to matrix format for plotting
+heatmap_data_CHC <- as.data.frame(chem_matrix_CHC)
+  
+type_colors <- c(
+    "Fungus Garden" = "green4",  # dark teal
+    "Necromass" = "black",      # goldenrod
+    "Workers" = "orange"          # purple
+  )
+  
+row_anno <- rowAnnotation(
+    Type = colony_means_CHC$Type,
+    col = list(Type = type_colors),
+    width = unit(10, "mm"),
+    show_legend = FALSE,
+    annotation_name_gp = gpar(col = NA)   
+  )
+
+  
+ht <- Heatmap(
+    data_matrix_chem_CHC,
+    name = "Scale",
+    col = col_fun1,
+    cluster_rows = FALSE,
+    cluster_columns = FALSE,
+    split = colony_means_CHC$Type,
+    column_names_gp = gpar(fontsize = 8, fontface = "bold.italic"),
+    column_names_rot = 90,
+    row_names_side = "left",
+    row_names_gp = gpar(fontsize = 6),
+    heatmap_legend_param = list(title = "Relative\nAbundance")
+  )
+
+ht
+
+final_plot <- row_anno + ht
+draw(final_plot)
+  
+# Run PERMANOVA
+adonis_result <- adonis2(chem_matrix_CHC ~ Type, data = colony_means_CHC, permutations = 9999)
+
+# View results
+adonis_result
+
+pairwise.adonis(
+  chem_matrix_CHC,
+  colony_means_CHC$Type,
+  sim.function = "vegdist",
+  sim.method = "bray",
+  p.adjust.m = "bonferroni",
+  reduce = NULL,
+  perm = 9999
+)
+
+#Indicator Species Analysis
+library(indicspecies)
+
+type = colony_means_CHC$Type                                                   
+inv = multipatt(chem_matrix_CHC, type, func = "r.g", control = how(nperm=9999))          
+summary(inv)
+capture.output(summary(inv), file = "ISA Results.csv")
+
+
+-------------------------------------------------
+
+  
+#Supplemental Figure - Heatmap of All Chemicals
+costatus_chems <- read.csv("aligned_costatus_area_decimals.csv", header = TRUE)
+
+colony_means <- costatus_chems %>%
+  group_by(ColonyCode, Type) %>%
+  summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)), .groups = "drop")
+
+chem_matrix = colony_means[,4:ncol(colony_means)] 
+
+# Convert to matrix format for plotting
+heatmap_data <- as.data.frame(chem_matrix)
+
+#Load the vegan package for hierachical clustering if you want to use distance functions not specified in dist.
+library(vegan)
+library(RColorBrewer)
+library(ComplexHeatmap)
+library(circlize)
+data_matrix_chem <- as.matrix(heatmap_data)
+
+col_fun1 <- colorRamp2(
+  seq(min(data_matrix_chem), max(data_matrix_chem), length.out = 3),
+  c("navyblue", "salmon", "red")
+)
+
+
+heaty <- Heatmap(
+  data_matrix_chem,
+  cluster_rows = FALSE,       # Disable clustering for rows
+  cluster_columns = FALSE,    # Disable clustering for columns
+  split = colony_means$Type,  # ← Group columns by Type
+  col = col_fun1, #colorRamp2(c(min(data_matrix_chem), max(data_matrix_chem)), c("black", "red")),
+  column_names_gp = gpar(fontsize = 6, fontface = "italic"),  # Italicize column labels
+  column_names_rot = 90,      # Rotate column labels
+  column_names_side = "top",  # Move column labels to the top
+  row_names_side = "left",    # Ensure row labels appear on the left
+  row_names_gp = gpar(fontsize = 7),  # Customize row labels appearance
+  row_names_max_width = unit(10, "cm"),  # Allow space for long row names
+  heatmap_legend_param = list(title = "Scale")  # Add a legend title
+)
+
+heaty
+
+type_colors <- c(
+  "Fungus Garden" = "green4",
+  "Necromass" = "black",
+  "Workers" = "orange"
+)
+
+row_anno <- rowAnnotation(
+  Type = colony_means$Type,
+  col = list(Type = type_colors),
+  width = unit(4, "mm"),
+  show_legend = FALSE,
+  annotation_name_gp = gpar(col = NA)   
+)
+
+#Final published plot manipulated the annotations in Adobe Illustrator to surround the row labels
+final_plot <- row_anno + heaty
+draw(final_plot)
+final_plot
+
+-------------------------------------------------
+
+
+#Supplemental Figure - Histogram of CHC and Fatty Acid Classes
+# Input Data; go through the process individually with each data set (all referred to as df) to create histograms for each sample type
+#Fungus Garden
+df <- tribble(
+  ~TotalCarbon, ~"Fatty Acids", ~Linear, ~Branched, ~Alkene,
+  17, 0, 0.00216522, 0.00044194, 0,
+  18, 0, 0, 0.009655277, 0,
+  19, 0, 0.006699807, 0.014405646, 0,
+  20, 0, 0.009131442, 0.02, 0.000935907,
+  21, 0, 0, 0.000566606, 0,
+  22, 0, 0, 0, 0,
+  23, 0, 0.00, 0.02, 0.05,
+  24, 0, 0, 0.01, 0.001381154,
+  25, 0, 0.077571178, 0, 0,
+  26, 0, 0, 0.029036299, 0,
+  27, 0, 0.344578446, 0, 0,
+  28, 0, 0.002630953, 0, 0,
+  29, 0, 0.304596294, 0, 0,
+  30, 0, 0, 0, 0,
+  31, 0, 0.075586125, 0, 0,
+  32, 0, 0, 0, 0,
+  33, 0, 0.013773331, 0, 0,
+  34, 0, 0, 0, 0,
+  35, 0, 0.000948367, 0, 0
+)
+
+#Necromass
+df <- tribble(
+  ~TotalCarbon, ~"Fatty Acids", ~Linear, ~Branched, ~Alkene,
+  17, 0, 0.000249051, 0, 0,
+  18, 0.003177537, 0.004622069, 0.002511656, 0,
+  19, 0, 0.002465578, 0, 0,
+  20, 0, 0.002901563, 0.01, 0.000822899,
+  21, 0, 0.004238941, 0.00363684, 0,
+  22, 0, 0.020956316, 0, 0,
+  23, 0, 0.05, 0.02, 0.05,
+  24, 0, 0, 0.03, 0,
+  25, 0, 0.079095434, 0, 0,
+  26, 0, 0.140153271, 0.01408641, 0,
+  27, 0, 0.102957846, 0, 0,
+  28, 0, 0.138508783, 0, 0,
+  29, 0, 0.089136447, 0, 0,
+  30, 0, 0.06953283, 0, 0,
+  31, 0, 0.053842592, 0, 0,
+  32, 0, 0.032466713, 0, 0,
+  33, 0, 0.053379655, 0, 0,
+  34, 0, 0.018435045, 0, 0,
+  35, 0, 0.01037117, 0, 0
+)
+
+#Workers
+df <- tribble(
+  ~TotalCarbon, ~"Fatty Acids", ~Linear, ~Branched, ~Alkene,
+  17, 0, 0, 0, 0,
+  18, 0.000587977, 0, 0.004754263, 0,
+  19, 0, 0.002750577, 0.002326973, 0,
+  20, 0, 0.00215658, 0.00, 0,
+  21, 0, 0.00547863, 0, 0,
+  22, 0, 0.022143126, 0, 0,
+  23, 0, 0.06, 0.01, 0.05,
+  24, 0, 0, 0.01, 0.001532641,
+  25, 0, 0.084294782, 0, 0,
+  26, 0, 0.132195446, 0.010694071, 0,
+  27, 0, 0.116012221, 0, 0,
+  28, 0, 0.117661363, 0, 0,
+  29, 0, 0.131190971, 0, 0,
+  30, 0, 0.070931563, 0, 0,
+  31, 0, 0.055410495, 0, 0,
+  32, 0, 0.032444132, 0, 0,
+  33, 0, 0.04888452, 0, 0,
+  34, 0, 0.026056907, 0, 0,
+  35, 0, 0.007165112, 0, 0
+)
+
+# Reshape to long format
+df_long <- df %>%
+  pivot_longer(cols = "Fatty Acids":Alkene,
+               names_to = "Class",
+               values_to = "Value")
+
+# Plot stacked bar chart
+ggplot(df_long, aes(x = factor(TotalCarbon), y = Value, fill = Class)) +
+  geom_col() +
+  labs(
+    x = "Total Carbon",
+    y = "Proportion",
+    fill = "Class",
+    title = "Worker CHC and Fatty Acid Classes"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 14, angle = 0, hjust = 0.5, vjust = 0.5),
+    axis.text.y = element_text(size = 14),
+    axis.title.x = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    plot.title  = element_text(size = 18, face = "bold"),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
+
+
+-------------------------------------------------
+
+
+#"Ant Head" Choice Assays
+#Inputting observed data
+observed.washed <- c(0,1,1,3,10,8)
+observed.home <- c(2,2,1,4,11,10)
+
+#Expected proportions
+expected_proportions <- c(1/6, 1/6, 1/6,1/6,1/6,1/6)
+
+#Performing the simulated Chi-Square goodness-of-fit tests with 10,000 replicates
+chisq_test.washed <- chisq.test(
+  x = observed.washed,
+  p = expected_proportions,
+  simulate.p.value = TRUE,
+  B = 10000
+)
+print(chisq_test.washed)
+
+chisq_test.home <- chisq.test(
+  x = observed.home,
+  p = expected_proportions,
+  simulate.p.value = TRUE,
+  B = 10000
+)
+print(chisq_test.home)
